@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task List with Filter</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #c6d4cc;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+      animation: fadeInDown 0.6s ease;
+    }
+
+    input, button {
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #taskInput {
+      width: 65%;
+      transition: border-color 0.3s ease;
+    }
+    #taskInput:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    #addBtn {
+      background: #667eea;
+      color: white;
+      border: none;
+      box-sizing: border-box;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+    #addBtn:hover {
+      background: #5568d3;
+      transform: scale(1.05);
+    }
+    #addBtn:active {
+      transform: scale(0.95);
+    }
+
+    .filters {
+      display: flex;
+      gap: 5px;
+      margin: 15px 0;
+    }
+
+    .filters button {
+      flex: 1;
+      cursor: pointer;
+      background: white;
+      transition: all 0.3s ease;
+    }
+
+    .filters button:hover {
+      background: #eef1ff;
+    }
+
+    .filters button.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      animation: slideIn 0.4s ease;
+    }
+
+    li.completed span {
+      text-decoration: line-through;
+      color: #999;
+    }
+
+    li span {
+      flex: 1;
+      transition: color 0.3s ease;
+    }
+
+    li button {
+      background: #f44336;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+    li button:hover {
+      background: #c62828;
+      transform: scale(1.05);
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+  <h1> Task List</h1>
+
+  <input type="text" id="taskInput" placeholder="Add a new task...">
+  <button id="addBtn">Add</button>
+
+  <div class="filters">
+    <button data-filter="all" class="active">All</button>
+    <button data-filter="active">Active</button>
+    <button data-filter="completed">Completed</button>
+  </div>
+
+  <ul id="taskList"></ul>
+
+  <script>
+    let tasks = [];
+    let currentFilter = 'all';
+
+    //  DOM Elements 
+    const taskInput = document.getElementById('taskInput');
+    const addBtn = document.getElementById('addBtn');
+    const taskList = document.getElementById('taskList');
+    const filterButtons = document.querySelectorAll('.filters button');
+
+    // localStorage Keys 
+    const TASKS_KEY = 'tasks';
+    const FILTER_KEY = 'filter';
+    function saveTasks() {
+      localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    }
+
+    function loadTasks() {
+      const stored = localStorage.getItem(TASKS_KEY);
+      tasks = stored ? JSON.parse(stored) : [];
+    }
+
+    //  Save and Load Filter 
+    function saveFilter() {
+      localStorage.setItem(FILTER_KEY, currentFilter);
+    }
+
+    function loadFilter() {
+      const stored = localStorage.getItem(FILTER_KEY);
+      if (stored && ['all', 'active', 'completed'].includes(stored)) {
+        currentFilter = stored;
+      } else {
+        currentFilter = 'all';
+      }
+      updateActiveFilterButton();
+    }
+
+    function updateActiveFilterButton() {
+      filterButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === currentFilter);
+      });
+    }
+
+    function getFilteredTasks() {
+      if (currentFilter === 'active') {
+        return tasks.filter(t => !t.completed);
+      }
+      if (currentFilter === 'completed') {
+        return tasks.filter(t => t.completed);
+      }
+      return tasks;
+    }
+
+    function renderTasks() {
+      const filtered = getFilteredTasks();
+      taskList.innerHTML = '';
+
+      if (filtered.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No tasks to show.';
+        taskList.appendChild(li);
+        return;
+      }
+
+      filtered.forEach(task => {
+        const li = document.createElement('li');
+        if (task.completed) li.classList.add('completed');
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = task.completed;
+        checkbox.addEventListener('change', () => toggleTask(task.id));
+
+        const span = document.createElement('span');
+        span.textContent = task.text;
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Delete';
+        delBtn.addEventListener('click', () => deleteTask(task.id));
+
+        li.append(checkbox, span, delBtn);
+        taskList.appendChild(li);
+      });
+    }
+
+    //  Task Actions 
+    function addTask() {
+      const text = taskInput.value.trim();
+      if (text === '') return;
+
+      tasks.push({
+        id: Date.now(),
+        text: text,
+        completed: false
+      });
+      saveTasks();
+      taskInput.value = '';
+      renderTasks();
+    }
+
+    function toggleTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        task.completed = !task.completed;
+        saveTasks();
+        renderTasks();
+      }
+    }
+
+    function deleteTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      saveTasks();
+      renderTasks();
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      saveFilter();
+      updateActiveFilterButton();
+      renderTasks();
+    }
+
+    //  Event Listeners 
+    addBtn.addEventListener('click', addTask);
+
+    taskInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') addTask();
+    });
+
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => setFilter(btn.dataset.filter));
+    });
+  </script>
+</body>
+</html>
